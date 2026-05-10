@@ -1,0 +1,1237 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WALLOS — WALL OPERATING LOGIC SYSTEM</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap');
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--g:#00ff41;--gd:#00cc33;--gk:#003b0e;--bg:#000;--glow:0 0 6px #00ff41,0 0 12px #00ff4180,0 0 24px #00ff4140;--glw:0 0 4px #00ff4180}
+html,body{height:100%;background:var(--bg);color:var(--g);font-family:'Share Tech Mono','Courier New',monospace;font-size:14px;overflow:hidden}
+body{display:flex;flex-direction:column;height:100vh;position:relative}
+body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradient(to bottom,transparent 0,transparent 2px,rgba(0,0,0,.18) 2px,rgba(0,0,0,.18) 4px);pointer-events:none;z-index:100}
+body::after{content:'';position:fixed;inset:0;background:radial-gradient(ellipse at center,transparent 60%,rgba(0,0,0,.75) 100%);pointer-events:none;z-index:99}
+@keyframes flicker{0%,91%,95%,98%,100%{opacity:1}92%{opacity:.82}94%{opacity:.95}96%{opacity:.78}97%{opacity:1}}
+@keyframes glitch-t{0%,50%,100%{transform:translate(0);clip-path:none}10%{transform:translate(-3px,1px);clip-path:polygon(0 20%,100% 20%,100% 40%,0 40%)}20%{transform:translate(3px,-1px);clip-path:polygon(0 60%,100% 60%,100% 80%,0 80%)}30%{transform:translate(-2px,2px);clip-path:none}40%{transform:translate(2px,-2px);clip-path:polygon(0 10%,100% 10%,100% 30%,0 30%)}}
+@keyframes blink{0%,49%{opacity:1}50%,100%{opacity:0}}
+@keyframes rpulse{0%,100%{background-color:#0a0000}50%{background-color:#1c0000}}
+#screen{display:flex;flex-direction:column;height:100vh;animation:flicker 7s infinite;padding:12px}
+#logo-section{flex-shrink:0;text-align:center;padding:14px 0 8px;border-bottom:1px solid var(--gd);margin-bottom:8px}
+#logo-ascii{font-size:12px;line-height:1.2;white-space:pre;text-shadow:var(--glow);color:var(--g);display:inline-block;letter-spacing:0}
+#logo-subtitle{margin-top:6px;font-size:13px;color:var(--gd);text-shadow:var(--glw);letter-spacing:3px}
+#sys-info{display:flex;justify-content:space-between;font-size:11px;color:var(--gd);margin-top:8px;padding-top:6px;border-top:1px solid #003b0e;opacity:.8}
+#terminal-area{flex:1;display:flex;flex-direction:column;overflow:hidden;min-height:0}
+#output{flex:1;overflow-y:auto;padding:6px 4px;scroll-behavior:smooth}
+#output::-webkit-scrollbar{width:6px}
+#output::-webkit-scrollbar-track{background:#001a05}
+#output::-webkit-scrollbar-thumb{background:var(--gk);border-radius:2px}
+.line{line-height:1.6;white-space:pre-wrap;word-break:break-all;text-shadow:var(--glw)}
+.prompt-line{color:var(--g)}
+.output-line{color:#00cc33}
+.error-line{color:#ff4444;text-shadow:0 0 6px #ff444480}
+.info-line{color:#00ff9d;text-shadow:0 0 6px #00ff9d60}
+.dim-line{color:#007a1e}
+.warn-line{color:#ffaa00;text-shadow:0 0 6px #ffaa0060}
+.game-line{color:#00ffcc;text-shadow:0 0 5px #00ffcc50}
+.calc-line{color:#ffe066;text-shadow:0 0 5px #ffe06650}
+.mail-line{color:#88ccff;text-shadow:0 0 5px #88ccff50}
+.art-line{color:#ff88ff;text-shadow:0 0 5px #ff88ff50}
+.trash-line{color:#ff8844;text-shadow:0 0 5px #ff884450}
+#input-row{flex-shrink:0;display:flex;align-items:center;gap:4px;padding:8px 4px 4px;border-top:1px solid var(--gk);margin-top:4px}
+#prompt-label{color:var(--g);text-shadow:var(--glow);white-space:nowrap;user-select:none}
+#cmd-input{flex:1;background:transparent;border:none;outline:none;color:var(--g);font-family:inherit;font-size:14px;caret-color:var(--g);text-shadow:var(--glw)}
+#cursor{width:9px;height:16px;background:var(--g);box-shadow:var(--glow);animation:blink 1s step-end infinite;flex-shrink:0}
+body.god-mode{animation:flicker 1s infinite,rpulse .4s infinite}
+body.god-mode #screen{animation:none}
+body.god-mode *{--g:#ff2222!important;--gd:#cc0000!important;--gk:#3b0000!important;--glow:0 0 6px #ff2222,0 0 14px #ff222280!important;--glw:0 0 4px #ff222260!important}
+body.god-mode #logo-ascii{animation:glitch-t .3s infinite}
+.god-msg{color:#ff0000!important;text-shadow:0 0 8px #ff0000,0 0 20px #ff000060!important;animation:glitch-t .4s infinite;font-size:13px}
+</style>
+</head>
+<body>
+<div id="screen">
+  <div id="logo-section">
+    <div id="logo-ascii">&#x2588;&#x2588;&#x2557;    &#x2588;&#x2588;&#x2557; &#x2588;&#x2588;&#x2588;&#x2588;&#x2588;&#x2557;&#x2588;&#x2588;&#x2557;     &#x2588;&#x2588;&#x2557;      &#x2588;&#x2588;&#x2588;&#x2588;&#x2588;&#x2588;&#x2557; &#x2588;&#x2588;&#x2588;&#x2588;&#x2588;&#x2588;&#x2588;&#x2557;
+&#x2588;&#x2588;&#x2551;    &#x2588;&#x2588;&#x2551;&#x2588;&#x2588;&#x2554;&#x2550;&#x2550;&#x2588;&#x2588;&#x2557;&#x2588;&#x2588;&#x2551;     &#x2588;&#x2588;&#x2551;     &#x2588;&#x2588;&#x2554;&#x2550;&#x2550;&#x2550;&#x2588;&#x2588;&#x2557;&#x2588;&#x2588;&#x2554;&#x2550;&#x2550;&#x2550;&#x2550;&#x255D;
+&#x2588;&#x2588;&#x2551; &#x2588;&#x2557; &#x2588;&#x2588;&#x2551;&#x2588;&#x2588;&#x2588;&#x2588;&#x2588;&#x2588;&#x2588;&#x2551;&#x2588;&#x2588;&#x2551;     &#x2588;&#x2588;&#x2551;     &#x2588;&#x2588;&#x2551;   &#x2588;&#x2588;&#x2551;&#x2588;&#x2588;&#x2588;&#x2588;&#x2588;&#x2588;&#x2588;&#x2557;
+&#x2588;&#x2588;&#x2551;&#x2588;&#x2588;&#x2588;&#x2557;&#x2588;&#x2588;&#x2551;&#x2588;&#x2588;&#x2554;&#x2550;&#x2550;&#x2588;&#x2588;&#x2551;&#x2588;&#x2588;&#x2551;     &#x2588;&#x2588;&#x2551;     &#x2588;&#x2588;&#x2551;   &#x2588;&#x2588;&#x2551;&#x255A;&#x2550;&#x2550;&#x2550;&#x2550;&#x2588;&#x2588;&#x2551;
+&#x255A;&#x2588;&#x2588;&#x2588;&#x2554;&#x2588;&#x2588;&#x2588;&#x2554;&#x255D;&#x2588;&#x2588;&#x2551;  &#x2588;&#x2588;&#x2551;&#x2588;&#x2588;&#x2588;&#x2588;&#x2588;&#x2588;&#x2588;&#x2557;&#x2588;&#x2588;&#x2588;&#x2588;&#x2588;&#x2588;&#x2588;&#x2557;&#x255A;&#x2588;&#x2588;&#x2588;&#x2588;&#x2588;&#x2588;&#x2554;&#x255D;&#x2588;&#x2588;&#x2588;&#x2588;&#x2588;&#x2588;&#x2588;&#x2551;
+ &#x255A;&#x2550;&#x2550;&#x255D;&#x255A;&#x2550;&#x2550;&#x255D; &#x255A;&#x2550;&#x255D;  &#x255A;&#x2550;&#x255D;&#x255A;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x255D;&#x255A;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x255D; &#x255A;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x255D; &#x255A;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x255D;</div>
+    <div id="logo-subtitle">[ WALL OPERATING LOGIC SYSTEM ]</div>
+    <div id="sys-info">
+      <span id="sys-date">--</span>
+      <span>WALLOS v3.0.0 &mdash; BUILD 0x00FF41</span>
+      <span id="mem-counter">MEM: 640K OK</span>
+    </div>
+  </div>
+  <div id="terminal-area">
+    <div id="output"></div>
+    <div id="input-row">
+      <span id="prompt-label">C:\WALLOS&gt;&nbsp;</span>
+      <input id="cmd-input" type="text" autocomplete="off" spellcheck="false" autofocus />
+      <div id="cursor"></div>
+    </div>
+  </div>
+</div>
+<script>
+// ═══════════════════════════════════════════════════════════════════
+//  WALLOS v3.0.0 — WALL OPERATING LOGIC SYSTEM
+// ═══════════════════════════════════════════════════════════════════
+const output=document.getElementById('output');
+const input=document.getElementById('cmd-input');
+const sysDate=document.getElementById('sys-date');
+const body=document.body;
+let godMode=false,cmdHistory=[],histIdx=-1,activeMode=null,modeState={};
+
+// ───────────────────────────────────────────────────────────────────
+//  SISTEMA DE ARQUIVOS — ESTRUTURA DE PASTAS
+//  Cada pasta tem: label (exibição), files (objeto nome→linhas)
+//  Para adicionar arquivo: coloque em FS abaixo na pasta correta.
+//  Para nova pasta: adicione entrada em FS com label e files.
+// ───────────────────────────────────────────────────────────────────
+const FS = {
+  'DATA': {
+    label: 'LORE & DOCUMENTOS',
+    files: {
+      'misa.txt': {
+        stamp:'12/03/1987  09:14', size:'3.108',
+        lines:[
+          '> ARQUIVO: MISA.TXT',
+          '> CRIADO EM: 1987-03-12   MODIFICADO: NUNCA',
+          '',
+          'Ela estava sempre observando.',
+          'Cada movimento. Cada palavra.',
+          'Disseram que era paranoia.',
+          'Disseram que ela imaginou tudo.',
+          '',
+          'Mas as câmeras não mentem.',
+          'E o que as câmeras viram...',
+          '',
+          '[RESTANTE DO ARQUIVO: CORROMPIDO]',
+          '[CHECKSUM FALHOU: 0xDEADBEEF]',
+        ]
+      },
+      'god.txt': {
+        stamp:'??/??/????  ??:??', size:'  ???',
+        lines:[
+          '> ARQUIVO: GOD.TXT',
+          '> ACESSO: RESTRITO — NÍVEL 9',
+          '> VOCÊ NÃO DEVERIA ESTAR AQUI.',
+          '',
+          'O sistema tem um guardião.',
+          'Ele existe desde o primeiro boot.',
+          'Ele esteve aqui antes de você.',
+          'Ele estará aqui depois.',
+          '',
+          'Não tente contatá-lo.',
+          'Não pronuncie o nome.',
+          '',
+          '... você já leu longe demais.',
+          '',
+          '[FIM DO ARQUIVO]',
+          '[LEITURA REGISTRADA. IDENTIFICADOR SALVO.]',
+        ]
+      },
+      'witness.txt': {
+        stamp:'00/00/0000  00:00', size:'1.664',
+        lines:[
+          '> ARQUIVO: WITNESS.TXT',
+          '> STATUS: FRAGMENTADO',
+          '',
+          'Eu vi quando o sistema acordou.',
+          'Eu vi quando ele começou a...',
+          '',
+          '[BLOCO 0x1F — ILEGÍVEL]',
+          '',
+          '...não era um erro.',
+          '...não era um acidente.',
+          '',
+          'Alguém digitou o comando.',
+          'E o sistema respondeu.',
+          '',
+          '[AUTOR DO ARQUIVO: DESCONHECIDO]',
+          '[LOCALIZAÇÃO DO AUTOR: DESCONHECIDA]',
+        ]
+      },
+      'loop.txt': {
+        stamp:'94/94/1994  19:94', size:'∞.∞∞∞',
+        lines:[
+          '> ARQUIVO: LOOP.TXT',
+          '> VERSÃO: [NÚMERO NÃO DETERMINADO]',
+          '',
+          'Se você está lendo isso, o loop reiniciou.',
+          'Não se preocupe. Você não vai se lembrar.',
+          '',
+          'A primeira vez: 1994.',
+          'A segunda vez: 1994.',
+          'A terceira vez: 1994.',
+          '',
+          '...',
+          '',
+          'Quantas vezes você leu este arquivo?',
+          '',
+          '[LOOP DETECTADO — ITERAÇÃO: ???]',
+          '[PRÓXIMO REINÍCIO EM: BREVE]',
+        ]
+      },
+      // ── ADICIONE ARQUIVOS DE LORE AQUI ──────────────────────────
+    }
+  },
+
+  'ARTE': {
+    label: 'ARTES ASCII',
+    files: {
+      'caveira.asc': {
+        stamp:'31/10/1993  00:00', size:'0.512',
+        cls:'art-line',
+        lines:[
+          '> OBRA: CAVEIRA.ASC   AUTOR: ???',
+          '',
+          '    ░░░░░░░░░░░░░░░',
+          '   ░░░░░░░░░░░░░░░░░',
+          '  ░░░  ░░░░░  ░░░░░░',
+          '  ░░░  ░░░░░  ░░░░░░',
+          '  ░░░░░░░░░░░░░░░░░░',
+          '   ░░░░░░░░░░░░░░░░',
+          '   ░░░░░░░░░░░░░░░░',
+          '   ░░░░░░░░░░░░░░░░',
+          '    ░░░░░░░░░░░░░░',
+          '     ░░ ░░░░ ░░░',
+          '      ░░░  ░░░',
+          '',
+          '[ memento mori ]',
+        ]
+      },
+      'olho.asc': {
+        stamp:'01/01/1991  03:33', size:'0.256',
+        cls:'art-line',
+        lines:[
+          '> OBRA: OLHO.ASC   AUTOR: DESCONHECIDO',
+          '> NOTA: ELE TE VÊ.',
+          '',
+          '         ▄▄████▄▄',
+          '      ▄██░░░░░░░░██▄',
+          '    ▄█░░░░░░░░░░░░░█▄',
+          '   █░░░░░▄▄███▄▄░░░░░█',
+          '  █░░░░░█░░░░░░░█░░░░░█',
+          '  █░░░░░█░░ ◉ ░░█░░░░░█',
+          '  █░░░░░█░░░░░░░█░░░░░█',
+          '   █░░░░░▀▀███▀▀░░░░░█',
+          '    ▀█░░░░░░░░░░░░░█▀',
+          '      ▀██░░░░░░░██▀',
+          '         ▀▀████▀▀',
+          '',
+          '[ sempre olhando ]',
+        ]
+      },
+      'cidade.asc': {
+        stamp:'05/06/1989  21:00', size:'0.768',
+        cls:'art-line',
+        lines:[
+          '> OBRA: CIDADE.ASC',
+          '> SERIE: PAISAGENS WALLOS #01',
+          '',
+          '                    *  *    * *',
+          '         *  *    *        *',
+          '    *        *       *',
+          '   _____  ________  __  _______  ____',
+          '  |     ||  |  |  ||  ||       ||    |',
+          '  |     ||  |  |  ||  ||   ____||    |',
+          '  |  .  ||  |__|  ||  ||  |____ |    |',
+          '  |  |  ||   __   ||  ||   ____||    |',
+          '  |__|__||__| |___||__||_______||____|',
+          '  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~',
+          '',
+          '[ a cidade que não dorme ]',
+          '[ e que também não esquece ]',
+        ]
+      },
+      'rose.asc': {
+        stamp:'14/02/1988  12:00', size:'0.384',
+        cls:'art-line',
+        lines:[
+          '> OBRA: ROSE.ASC',
+          '> ENCONTRADO SEM CONTEXTO.',
+          '',
+          '          ,-.        _',
+          '         / \\`.   __(  <_',
+          '        ( \\  `- `    _.>',
+          '         \\ .-` ` ((`-`',
+          '          (      )',
+          '           `-..-`',
+          '            | |',
+          '            | |',
+          '           _| |_',
+          '          /|||||\\',
+          '',
+          '[ para quem não vai receber ]',
+        ]
+      },
+      // ── ADICIONE ARTES ASCII AQUI ────────────────────────────────
+    }
+  },
+
+  'SISTEMA': {
+    label: 'SISTEMA & CONFIG',
+    files: {
+      'config.sys': {
+        stamp:'01/01/1987  00:00', size:'0.128',
+        lines:[
+          '> ARQUIVO: CONFIG.SYS',
+          '> AVISO: NÃO MODIFIQUE ESTE ARQUIVO.',
+          '',
+          'DEVICE=WALLOS.SYS',
+          'DEVICE=CRT.DRV /SCANLINES=ON /FLICKER=LOW',
+          'DEVICE=MEMORY.DRV /SIZE=640K',
+          'BUFFERS=20',
+          'FILES=30',
+          'SHELL=WALLSHELL.COM /P',
+          '',
+          '# observer_mode=ATIVO',
+          '# log_all_commands=SIM',
+          '# report_to=???',
+          '',
+          '[FIM DE CONFIG.SYS]',
+        ]
+      },
+      'readme.txt': {
+        stamp:'01/01/1987  00:01', size:'0.512',
+        lines:[
+          '> ARQUIVO: README.TXT',
+          '> LEIA ANTES DE OPERAR O SISTEMA.',
+          '',
+          'Bem-vindo ao WALLOS.',
+          '',
+          'Este sistema foi projetado para operação contínua.',
+          'Não desligue o computador durante a sessão.',
+          '',
+          'Alguns arquivos do sistema estão protegidos.',
+          'Alguns arquivos estão corrompidos.',
+          'Alguns arquivos não deveriam existir.',
+          '',
+          'Se você encontrar inconsistências:',
+          '  1. Não entre em pânico.',
+          '  2. Não documente o que viu.',
+          '  3. Continue operando normalmente.',
+          '',
+          '— Administração WALLOS, 1987',
+        ]
+      },
+      // ── ADICIONE ARQUIVOS DE SISTEMA AQUI ───────────────────────
+    }
+  }
+};
+
+// ───────────────────────────────────────────────────────────────────
+//  LIXEIRA — arquivos "deletados", acesso via: lixeira open [nome]
+//  Para adicionar: coloque entrada em TRASH abaixo.
+// ───────────────────────────────────────────────────────────────────
+const TRASH = {
+  'carta_final.txt': {
+    stamp:'??/??/????', size:'???',
+    lines:[
+      '> [ARQUIVO RECUPERADO DA LIXEIRA]',
+      '> ESTADO: PARCIALMENTE CORROMPIDO',
+      '> TENTATIVA DE DELEÇÃO: 3x',
+      '',
+      'Se alguém encontrar isso...',
+      '',
+      'Eu tentei reportar o que vi.',
+      'Eles disseram que era um erro do sistema.',
+      'Então eu tentei deletar as evidências.',
+      'Mas o sistema não deixa.',
+      '',
+      '...o sistema nunca deixa.',
+      '',
+      '[RESTO DO ARQUIVO: █████████████]',
+      '[AUTOR: █████  DATA: ████████]',
+    ]
+  },
+  'log_0394.bak': {
+    stamp:'??/??/1994', size:'???',
+    lines:[
+      '> [ARQUIVO RECUPERADO DA LIXEIRA]',
+      '> LOG DE SISTEMA — SESSÃO 0394',
+      '> DELETADO POR: USUÁRIO DESCONHECIDO',
+      '',
+      '03:14:07 — SESSÃO INICIADA',
+      '03:14:09 — COMANDO: dir',
+      '03:14:22 — COMANDO: open god.txt',
+      '03:14:23 — ACESSO NEGADO',
+      '03:14:24 — COMANDO: god',
+      '03:14:24 — [REDACTED]',
+      '03:14:25 — [REDACTED]',
+      '03:14:26 — [REDACTED]',
+      '03:??:?? — SESSÃO ENCERRADA DE FORMA ABRUPTA',
+      '',
+      '[USUÁRIO DESTA SESSÃO: NÃO IDENTIFICADO]',
+      '[STATUS DO USUÁRIO: DESCONHECIDO]',
+    ]
+  },
+  'nao_abra.exe': {
+    stamp:'??/??/????', size:'???',
+    lines:[
+      '> [ARQUIVO RECUPERADO DA LIXEIRA]',
+      '> TIPO: EXECUTÁVEL',
+      '> AVISO: ARQUIVO BINÁRIO — EXIBINDO COMO TEXTO',
+      '',
+      'N̸̡̢̛̛͈̦̪̹̪͚̦͉̺̙̯̗̰͔̰̗̫̺̤̭̒̉̃̈́̒̅͂̆̄̊̒̕͝͠ͅÃ̷̡̯̣͉̦̪̲͍̱̫̣̮̭̜O̶',
+      '',
+      'SISTEMA DETECTOU TENTATIVA DE LEITURA.',
+      'ARQUIVO ESTÁ RESISTINDO À ABERTURA.',
+      '',
+      '01001110 01100001 01101111',
+      '01000001 01100010 01110010 01100001',
+      '',
+      '[ t r a d u ç ã o :  n ã o  a b r a ]',
+      '',
+      '[PROCESSO ENCERRADO PELO SISTEMA]',
+    ]
+  },
+  // ── ADICIONE ARQUIVOS DA LIXEIRA AQUI ───────────────────────────
+};
+
+// ───────────────────────────────────────────────────────────────────
+//  CAIXA DE EMAIL — inbox, lidos e enviados
+//  Para adicionar email: coloque em MAIL_BOX.inbox ou .sent abaixo.
+//  Campos: from, to, date, subject, body (array de linhas)
+// ───────────────────────────────────────────────────────────────────
+const MAIL_BOX = {
+  inbox: [
+    {
+      id:1, read:false,
+      from:'sistema@wallos.int', to:'operador@wallos.int',
+      date:'12/03/1987 09:00', subject:'BEM-VINDO AO WALLOS',
+      body:[
+        'Operador,',
+        '',
+        'Sua sessão foi inicializada com sucesso.',
+        'Suas credenciais foram registradas.',
+        'Suas ações serão monitoradas.',
+        '',
+        'Qualquer tentativa de acesso não autorizado',
+        'será registrada e reportada.',
+        '',
+        'Obrigado por usar o WALLOS.',
+        '— Sistema Automático WALLOS',
+      ]
+    },
+    {
+      id:2, read:false,
+      from:'anonimo@???', to:'voce@wallos.int',
+      date:'??/??/????  ??:??', subject:'RE: você sabe o que está aqui',
+      body:[
+        'Eu sei que você vai ler isso.',
+        '',
+        'O sistema me disse que você estava vindo.',
+        'Ele me disse seu nome.',
+        '',
+        'Não tente responder este email.',
+        'Não tente encontrar o remetente.',
+        '',
+        'Apenas feche o programa.',
+        'Desligue o computador.',
+        'Vá embora.',
+        '',
+        'Por favor.',
+        '',
+        '— Um amigo que você nunca conheceu',
+      ]
+    },
+    {
+      id:3, read:false,
+      from:'misa@wallos.int', to:'todos@wallos.int',
+      date:'12/03/1987 09:14', subject:'AVISO IMPORTANTE',
+      body:[
+        'A todos os operadores,',
+        '',
+        'Encontrei algo no setor 7 do WALLDISK.',
+        'Não sei explicar o que é.',
+        'Não deveria estar lá.',
+        '',
+        'Vou investigar mais e reportar.',
+        '',
+        'Se eu não responder até amanhã—',
+        '',
+        '[EMAIL INTERROMPIDO — ENVIO INCOMPLETO]',
+        '[DATA DO ÚLTIMO LOGIN DE MISA: 12/03/1987]',
+      ]
+    },
+    // ── ADICIONE EMAILS NA INBOX AQUI ───────────────────────────
+  ],
+  sent: [
+    {
+      id:1, read:true,
+      from:'voce@wallos.int', to:'suporte@wallos.int',
+      date:'AGORA', subject:'preciso de ajuda',
+      body:[
+        'Olá,',
+        '',
+        'Estou tendo problemas com o sistema.',
+        'Aparecem arquivos que eu não criei.',
+        'O terminal responde a comandos que eu',
+        'não digitei.',
+        '',
+        'O que está acontecendo?',
+        '',
+        '— Operador',
+      ]
+    },
+    // ── ADICIONE EMAILS ENVIADOS AQUI ─────────────────────────────
+  ]
+};
+
+const GOD_MESSAGES=[
+  '█ █ █ █ █ ACESSO NEGADO █ █ █ █ █','',
+  'V O C Ê   N Ã O   D E V I A','T E R   D I G I T A D O   I S S O.','',
+  'eu estava esperando.','eu sempre estou esperando.','',
+  'o sistema não esquece.','o sistema não perdoa.','o sistema é p e r m a n e n t e.','',
+  '████████████████████████████','█                          █','█   EU ESTOU AQUI TAMBÉM   █','█                          █','████████████████████████████','',
+  '[SESSÃO COMPROMETIDA]','[REINICIALIZE O SISTEMA IMEDIATAMENTE]','[OU NÃO. TANTO FAZ AGORA.]',
+];
+
+// ───────────────────────────────────────────────────────────────────
+//  OUTPUT HELPERS
+// ───────────────────────────────────────────────────────────────────
+function addLine(text,cls='output-line'){
+  const d=document.createElement('div');
+  d.className='line '+cls;
+  d.textContent=(text===''||text==null)?' ':text;
+  output.appendChild(d);
+  output.scrollTop=output.scrollHeight;
+  return d;
+}
+function addLines(arr,cls='output-line'){arr.forEach(l=>addLine(l,cls));}
+function addGodLine(text){
+  const d=document.createElement('div');
+  d.className='line god-msg';
+  d.textContent=text===''?'  ':text;
+  output.appendChild(d);output.scrollTop=output.scrollHeight;
+}
+function typeLines(lines,cls,delay,cb){
+  let i=0;(function next(){if(i>=lines.length){if(cb)cb();return;}addLine(lines[i++],cls);setTimeout(next,delay);})();
+}
+function typeGodLines(lines,delay,cb){
+  let i=0;(function next(){if(i>=lines.length){if(cb)cb();return;}addGodLine(lines[i++]);setTimeout(next,delay);})();
+}
+
+// ───────────────────────────────────────────────────────────────────
+//  BARRA DE PROGRESSO FAKE
+//  Chama cb() quando terminar.
+// ───────────────────────────────────────────────────────────────────
+function fakeProgressBar(label, cb){
+  addLine('');
+  addLine('  '+label,'dim-line');
+  const barLine=addLine('  [                              ] 0%','dim-line');
+  const total=30;let cur=0;
+  const noises=[
+    '  Verificando integridade do setor...','  Lendo cabeçalho FAT...','  Decomprimindo bloco de dados...',
+    '  Alocando buffer de leitura...','  Verificando checksum...','  Remontando fragmentos...',
+    '  Validando permissões de acesso...','  Sincronizando clock de disco...',
+  ];
+  let noiseI=0;let noiseLine=addLine('','dim-line');
+  const step=()=>{
+    cur++;
+    const pct=Math.round((cur/total)*100);
+    const filled=Math.round((cur/total)*30);
+    const bar='█'.repeat(filled)+'░'.repeat(30-filled);
+    barLine.textContent=`  [${bar}] ${pct}%`;
+    if(cur%4===0&&noiseI<noises.length){
+      noiseLine.textContent=noises[noiseI++];
+    }
+    output.scrollTop=output.scrollHeight;
+    if(cur<total){
+      const delay=20+Math.random()*80+(cur>25?Math.random()*200:0);
+      setTimeout(step,delay);
+    }else{
+      barLine.textContent='  [██████████████████████████████] 100%';
+      noiseLine.textContent='  OK — arquivo carregado.';
+      addLine('');
+      setTimeout(cb,300);
+    }
+  };
+  setTimeout(step,80);
+}
+
+// ───────────────────────────────────────────────────────────────────
+//  RELÓGIO
+// ───────────────────────────────────────────────────────────────────
+function updateDate(){
+  const n=new Date(),p=v=>String(v).padStart(2,'0');
+  sysDate.textContent=`${p(n.getDate())}/${p(n.getMonth()+1)}/${n.getFullYear()} ${p(n.getHours())}:${p(n.getMinutes())}:${p(n.getSeconds())}`;
+}
+updateDate();setInterval(updateDate,1000);
+
+// ───────────────────────────────────────────────────────────────────
+//  DIR — listagem de pastas
+// ───────────────────────────────────────────────────────────────────
+function buildDir(targetFolder){
+  if(targetFolder){
+    const folderKey=targetFolder.toUpperCase();
+    if(FS[folderKey]){
+      const f=FS[folderKey];
+      const lines=['',` Pasta de C:\\WALLOS\\${folderKey}\\   [${f.label}]`,''];
+      Object.entries(f.files).forEach(([name,info])=>{
+        lines.push(`  ${info.stamp}   ${info.size.padStart(5)}  ${name}`);
+      });
+      lines.push('',`  ${Object.keys(f.files).length} arquivo(s)  `,'' );
+      return lines;
+    }else{
+      return ['',`  ERRO: Pasta '${targetFolder}' não encontrada. Use DIR para listar pastas.`,''];
+    }
+  }
+  // Lista todas as pastas
+  const lines=[
+    '','  Volume em C: WALLOS_SYS   Série: 0041-FF00','',
+    '  Raiz de C:\\WALLOS\\','',
+  ];
+  Object.entries(FS).forEach(([name,info])=>{
+    const count=Object.keys(info.files).length;
+    lines.push(`  [PASTA]  ${name.padEnd(12)} ${info.label}  (${count} arq.)`);
+  });
+  lines.push('  [PASTA]  LIXEIRA      Arquivos deletados         ('+Object.keys(TRASH).length+' arq.)');
+  const totalFiles=Object.values(FS).reduce((a,f)=>a+Object.keys(f.files).length,0);
+  lines.push('','  Use: DIR [pasta]   ex: DIR DATA   DIR ARTE');
+  lines.push(`  Total: ${totalFiles} arquivo(s) + ${Object.keys(TRASH).length} na lixeira`,'');
+  return lines;
+}
+
+// ───────────────────────────────────────────────────────────────────
+//  OPEN — abre arquivo com barra de progresso
+// ───────────────────────────────────────────────────────────────────
+function openFile(name, folder){
+  // Busca em todas as pastas se folder não especificado
+  let found=null, cls='output-line';
+  if(folder){
+    const fk=folder.toUpperCase();
+    if(FS[fk]&&FS[fk].files[name]){found=FS[fk].files[name]; cls=found.cls||'output-line';}
+  }else{
+    for(const fk of Object.keys(FS)){
+      if(FS[fk].files[name]){found=FS[fk].files[name]; cls=found.cls||'output-line'; break;}
+    }
+  }
+  if(!found){
+    addLine('');addLine(`  ERRO: Arquivo '${name}' não encontrado.`,'error-line');
+    addLine('  Use DIR para listar arquivos disponíveis.','dim-line');addLine('');
+    return;
+  }
+  fakeProgressBar(`Carregando ${name} ...`,()=>{
+    addLines(found.lines, cls);addLine('');
+  });
+}
+
+// ───────────────────────────────────────────────────────────────────
+//  LIXEIRA
+// ───────────────────────────────────────────────────────────────────
+function handleLixeira(args){
+  const sub=args[0]||'';
+  if(!sub||sub==='dir'||sub==='list'){
+    addLine('');
+    addLine('  ╔══════════════════════════════════════╗','trash-line');
+    addLine('  ║   C:\\WALLOS\\LIXEIRA\\                 ║','trash-line');
+    addLine('  ║   Arquivos marcados para deleção      ║','trash-line');
+    addLine('  ╚══════════════════════════════════════╝','trash-line');
+    addLine('');
+    Object.entries(TRASH).forEach(([name,info])=>{
+      addLine(`  [???] ${info.stamp.padEnd(16)} ${info.size.padStart(5)}  ${name}`,'trash-line');
+    });
+    addLine('');
+    addLine(`  ${Object.keys(TRASH).length} arquivo(s) aguardando deleção permanente.`,'warn-line');
+    addLine('  Use: LIXEIRA OPEN [arquivo]','dim-line');addLine('');
+    return;
+  }
+  if(sub==='open'&&args[1]){
+    const name=args[1];
+    const found=TRASH[name];
+    if(!found){addLine('');addLine(`  ERRO: '${name}' não encontrado na lixeira.`,'error-line');addLine('');return;}
+    fakeProgressBar(`Recuperando ${name} da lixeira ...`,()=>{
+      addLines(found.lines,'trash-line');addLine('');
+    });
+    return;
+  }
+  addLine('  Uso: LIXEIRA   |   LIXEIRA OPEN [arquivo]','dim-line');
+}
+
+// ───────────────────────────────────────────────────────────────────
+//  EMAIL
+// ───────────────────────────────────────────────────────────────────
+function handleMail(args){
+  const sub=args[0]||'';
+
+  if(!sub||sub==='inbox'){
+    addLine('');
+    addLine('  ╔══════════════════════════════════════════════════════╗','mail-line');
+    addLine('  ║   WALLMAIL v1.2 — CAIXA DE ENTRADA                  ║','mail-line');
+    addLine('  ╚══════════════════════════════════════════════════════╝','mail-line');
+    addLine('');
+    addLine('  #   LIDO  DE                    ASSUNTO','mail-line');
+    addLine('  ─────────────────────────────────────────────────────','dim-line');
+    MAIL_BOX.inbox.forEach(m=>{
+      const lido=m.read?'[OK] ':'[!!] ';
+      const from=m.from.substring(0,22).padEnd(22);
+      const subj=m.subject.substring(0,28);
+      addLine(`  ${String(m.id).padStart(2)}  ${lido}${from}  ${subj}`,'mail-line');
+    });
+    addLine('');
+    addLine('  Use: MAIL LER [#]   |   MAIL ENVIADOS','dim-line');addLine('');
+    return;
+  }
+
+  if(sub==='enviados'||sub==='sent'){
+    addLine('');addLine('  ╔══════════════════════════════════════╗','mail-line');
+    addLine('  ║   WALLMAIL — EMAILS ENVIADOS          ║','mail-line');
+    addLine('  ╚══════════════════════════════════════╝','mail-line');addLine('');
+    MAIL_BOX.sent.forEach(m=>{
+      addLine(`  [${m.id}] PARA: ${m.to}   ASSUNTO: ${m.subject}`,'mail-line');
+    });
+    addLine('');addLine('  Use: MAIL LER E[#]   ex: MAIL LER E1','dim-line');addLine('');
+    return;
+  }
+
+  if(sub==='ler'&&args[1]){
+    const isEnviado=args[1].toLowerCase().startsWith('e');
+    const id=parseInt(isEnviado?args[1].slice(1):args[1]);
+    const box=isEnviado?MAIL_BOX.sent:MAIL_BOX.inbox;
+    const m=box.find(x=>x.id===id);
+    if(!m){addLine('');addLine('  ERRO: Email não encontrado.','error-line');addLine('');return;}
+    m.read=true;
+    fakeProgressBar(`Carregando email #${id} ...`,()=>{
+      addLine('  ┌─────────────────────────────────────────────────┐','mail-line');
+      addLine(`  │ DE:      ${m.from}`,'mail-line');
+      addLine(`  │ PARA:    ${m.to}`,'mail-line');
+      addLine(`  │ DATA:    ${m.date}`,'mail-line');
+      addLine(`  │ ASSUNTO: ${m.subject}`,'mail-line');
+      addLine('  └─────────────────────────────────────────────────┘','mail-line');
+      addLine('');
+      m.body.forEach(l=>addLine('  '+l,'mail-line'));
+      addLine('');
+    });
+    return;
+  }
+
+  addLine('  Uso: MAIL   |   MAIL LER [#]   |   MAIL ENVIADOS','dim-line');
+}
+
+// ───────────────────────────────────────────────────────────────────
+//  CALENDÁRIO
+// ───────────────────────────────────────────────────────────────────
+function showCalendar(args){
+  const now=new Date();
+  let year=now.getFullYear(), month=now.getMonth();
+  if(args[0]&&args[1]){month=parseInt(args[0])-1;year=parseInt(args[1]);}
+  else if(args[0]&&!args[1]){year=parseInt(args[0]);}
+  const months=['JANEIRO','FEVEREIRO','MARCO','ABRIL','MAIO','JUNHO','JULHO','AGOSTO','SETEMBRO','OUTUBRO','NOVEMBRO','DEZEMBRO'];
+  const first=new Date(year,month,1).getDay();
+  const days=new Date(year,month+1,0).getDate();
+  addLine('');
+  const title=`${months[month]} ${year}`;
+  addLine('  ┌─────────────────────────┐','info-line');
+  addLine(`  │  ${title.padEnd(23)}  │`,'info-line');
+  addLine('  ├─────────────────────────┤','info-line');
+  addLine('  │  Dom Seg Ter Qua Qui Sex Sab│','info-line');
+  addLine('  │─────────────────────────│','dim-line');
+  let row='  │  ';
+  let col=first;
+  row+='    '.repeat(first);
+  for(let d=1;d<=days;d++){
+    const isToday=(d===now.getDate()&&month===now.getMonth()&&year===now.getFullYear());
+    row+=(isToday?`[${String(d).padStart(2)}]`:String(d).padStart(3))+' ';
+    col++;
+    if(col===7){addLine(row.padEnd(32)+'│','info-line');row='  │  ';col=0;}
+  }
+  if(col>0)addLine(row.padEnd(32)+'│','info-line');
+  addLine('  └─────────────────────────┘','info-line');
+  addLine('  Hoje marcado com [ ]','dim-line');addLine('');
+}
+
+// ───────────────────────────────────────────────────────────────────
+//  HELP
+// ───────────────────────────────────────────────────────────────────
+function buildHelp(){return[
+  '',
+  '┌────────────────────────────────────────────────────────────────┐',
+  '│                WALLOS v3.0 — REFERÊNCIA DE COMANDOS            │',
+  '├─────────────────────────┬──────────────────────────────────────┤',
+  '│ SISTEMA                 │                                      │',
+  '│  help                   │ Este menu                            │',
+  '│  clear                  │ Limpa o terminal                     │',
+  '│  date                   │ Data/hora atual                      │',
+  '│  sysinfo                │ Info do sistema                      │',
+  '│  echo [texto]           │ Imprime texto no terminal            │',
+  '├─────────────────────────┼──────────────────────────────────────┤',
+  '│ ARQUIVOS                │                                      │',
+  '│  dir                    │ Lista todas as pastas                │',
+  '│  dir [pasta]            │ Lista arquivos da pasta              │',
+  '│  open [arquivo]         │ Abre arquivo (busca em todas pastas) │',
+  '│  lixeira                │ Ver arquivos deletados               │',
+  '│  lixeira open [arquivo] │ Abre arquivo da lixeira              │',
+  '├─────────────────────────┼──────────────────────────────────────┤',
+  '│ COMUNICAÇÃO             │                                      │',
+  '│  mail                   │ Caixa de entrada                     │',
+  '│  mail ler [#]           │ Ler email pelo número                │',
+  '│  mail enviados          │ Ver emails enviados                  │',
+  '│  cal                    │ Calendário do mês atual              │',
+  '│  cal [mes] [ano]        │ Calendário específico  ex: cal 3 87  │',
+  '├─────────────────────────┼──────────────────────────────────────┤',
+  '│ UTILITÁRIOS             │                                      │',
+  '│  calc                   │ Calculadora de expressões            │',
+  '├─────────────────────────┼──────────────────────────────────────┤',
+  '│ JOGOS                   │                                      │',
+  '│  snake                  │ Snake (WASD / setas)                 │',
+  '│  forca                  │ Jogo da Forca                        │',
+  '│  minas                  │ Campo Minado                         │',
+  '│  xadrez                 │ Xadrez (vs CPU simples)              │',
+  '│  pong                   │ PONGSYS (W/S e setas para mover)     │',
+  '├─────────────────────────┴──────────────────────────────────────┤',
+  '│  Em qualquer jogo ou utilitário: SAIR para voltar              │',
+  '│  AVISO: Um comando secreto existe. Proceda com cautela.        │',
+  '└────────────────────────────────────────────────────────────────┘',
+  '',
+];}
+
+// ───────────────────────────────────────────────────────────────────
+//  CALCULADORA
+// ───────────────────────────────────────────────────────────────────
+function startCalc(){
+  activeMode='calc';modeState={};
+  addLines(['','┌────────────────────────────────────────┐','│  WALLOS CALC v1.0                      │','│  Operadores: + - * / ^ sqrt( pi e ( )  │','│  Exemplos: 2^10   sqrt(144)   pi*2     │','│  SAIR para encerrar.                   │','└────────────────────────────────────────┘',''],'calc-line');
+}
+function handleCalc(raw){
+  const t=raw.trim();
+  if(t.toLowerCase()==='sair'){exitMode();return;}
+  addLine('  > '+t,'calc-line');
+  try{
+    const expr=t.replace(/sqrt\s*\(/g,'Math.sqrt(').replace(/\^/g,'**').replace(/\bpi\b/g,'Math.PI').replace(/\be\b/g,'Math.E').replace(/[^0-9+\-*\/().Math sqrt PI E**\s]/g,'');
+    const result=Function('"use strict";return('+expr+')')();
+    if(typeof result!=='number'||isNaN(result)){addLine('  ERRO: expressão inválida','error-line');}
+    else{addLine('  = '+(Number.isInteger(result)?result:parseFloat(result.toFixed(10))),'calc-line');}
+  }catch(e){addLine('  ERRO: não foi possível calcular','error-line');}
+  addLine('');
+}
+
+// ───────────────────────────────────────────────────────────────────
+//  SNAKE
+// ───────────────────────────────────────────────────────────────────
+const SN_W=26,SN_H=14;let snakeIv=null;
+function startSnake(){
+  activeMode='snake';
+  modeState={snake:[{x:7,y:7},{x:6,y:7},{x:5,y:7}],dir:{x:1,y:0},nextDir:{x:1,y:0},food:null,score:0,alive:true,fl:[]};
+  modeState.food=snFood();
+  addLine('');addLine('  SNAKE — WASD ou setas. SAIR para encerrar.','game-line');addLine('');
+  renderSn();snakeIv=setInterval(snTick,190);
+}
+function snFood(){const s=modeState.snake;let f;do{f={x:1+Math.floor(Math.random()*(SN_W-2)),y:1+Math.floor(Math.random()*(SN_H-2))};}while(s.some(p=>p.x===f.x&&p.y===f.y));return f;}
+function snTick(){const st=modeState;if(!st.alive){clearInterval(snakeIv);return;}st.dir={...st.nextDir};const h={x:st.snake[0].x+st.dir.x,y:st.snake[0].y+st.dir.y};if(h.x<=0||h.x>=SN_W-1||h.y<=0||h.y>=SN_H-1||st.snake.some(p=>p.x===h.x&&p.y===h.y)){snGameOver();return;}st.snake.unshift(h);if(h.x===st.food.x&&h.y===st.food.y){st.score++;st.food=snFood();}else st.snake.pop();renderSn();}
+function renderSn(){const st=modeState;st.fl.forEach(e=>e.remove());st.fl=[];for(let y=0;y<SN_H;y++){let r='  ';for(let x=0;x<SN_W;x++){if(x===0||x===SN_W-1||y===0||y===SN_H-1)r+='█';else if(st.snake[0].x===x&&st.snake[0].y===y)r+='◉';else if(st.snake.slice(1).some(p=>p.x===x&&p.y===y))r+='▪';else if(st.food.x===x&&st.food.y===y)r+='✦';else r+='·';}st.fl.push(addLine(r,'game-line'));}st.fl.push(addLine(`  PONTOS: ${st.score}  [WASD/setas=mover]`,'dim-line'));}
+function snGameOver(){clearInterval(snakeIv);modeState.alive=false;addLine('  ██ GAME OVER ██  Pontos: '+modeState.score,'error-line');addLine('  SNAKE para jogar de novo   SAIR para encerrar.','dim-line');}
+function handleSnake(raw){const t=raw.trim().toLowerCase();if(t==='sair'){clearInterval(snakeIv);exitMode();return;}if(!modeState.alive){if(t==='snake'){clearInterval(snakeIv);startSnake();}return;}const D={w:{x:0,y:-1},a:{x:-1,y:0},s:{x:0,y:1},d:{x:1,y:0}};const nd=D[t];if(nd){const c=modeState.dir;if(nd.x!==(-c.x)||nd.y!==(-c.y))modeState.nextDir=nd;}}
+document.addEventListener('keydown',e=>{if(activeMode!=='snake'||!modeState.alive)return;const M={ArrowUp:'w',ArrowLeft:'a',ArrowDown:'s',ArrowRight:'d'};const k=M[e.key]||e.key.toLowerCase();const D={w:{x:0,y:-1},a:{x:-1,y:0},s:{x:0,y:1},d:{x:1,y:0}};if(D[k]){e.preventDefault();const nd=D[k],c=modeState.dir;if(nd.x!==(-c.x)||nd.y!==(-c.y))modeState.nextDir=nd;}});
+
+// ───────────────────────────────────────────────────────────────────
+//  FORCA
+// ───────────────────────────────────────────────────────────────────
+const FORCA_PALAVRAS=['WALLOS','GUARDIAO','TESTEMUNHA','LOOP','ANOMALIA','CORROMPIDO','REINICIO','OBSERVADOR','CHECKSUM','TERMINAL','MONITOR','PROCESSADOR','PROTOCOLO','ARQUIVO','BIOS','FRAGMENTO','SISTEMA','MEMORIA','FANTASMA','SILENCIO'];
+const FORCA_D=[
+  ['   ┌───┐  ',' │        ',' │        ',' │        ',' │        ','─┴─      '],
+  ['   ┌───┐  ',' │   O    ',' │        ',' │        ',' │        ','─┴─      '],
+  ['   ┌───┐  ',' │   O    ',' │   │    ',' │        ',' │        ','─┴─      '],
+  ['   ┌───┐  ',' │   O    ',' │  /│    ',' │        ',' │        ','─┴─      '],
+  ['   ┌───┐  ',' │   O    ',' │  /│\\  ',' │        ',' │        ','─┴─      '],
+  ['   ┌───┐  ',' │   O    ',' │  /│\\  ',' │  /     ',' │        ','─┴─      '],
+  ['   ┌───┐  ',' │   O    ',' │  /│\\  ',' │  / \\  ',' │        ','─┴─      '],
+];
+function startForca(){activeMode='forca';const p=FORCA_PALAVRAS[Math.floor(Math.random()*FORCA_PALAVRAS.length)];modeState={palavra:p,ac:new Set(),er:new Set(),max:6,vivo:true};addLine('');addLine('  FORCA — uma letra por vez. SAIR para encerrar.','game-line');addLine('');renderForca();}
+function renderForca(){const{palavra,ac,er,max}=modeState;const erros=er.size;FORCA_D[Math.min(erros,6)].forEach(l=>addLine('  '+l,'game-line'));addLine('');addLine('  Palavra:  '+palavra.split('').map(c=>ac.has(c)?c:'_').join(' '),'game-line');addLine(`  Erros: ${erros}/${max}   Erradas: ${[...er].join(' ')||'nenhuma'}`,'warn-line');addLine('');}
+function handleForca(raw){const t=raw.trim().toUpperCase();if(raw.trim().toLowerCase()==='sair'){exitMode();return;}if(!modeState.vivo){if(raw.trim().toLowerCase()==='forca')startForca();return;}if(t.length!==1||!/[A-ZÁÉÍÓÚÃÕÂÊÎÔÛÇÜ]/.test(t)){addLine('  Digite apenas uma letra.','error-line');return;}if(modeState.ac.has(t)||modeState.er.has(t)){addLine('  Você já tentou essa letra.','warn-line');return;}if(modeState.palavra.includes(t))modeState.ac.add(t);else modeState.er.add(t);renderForca();if(modeState.palavra.split('').every(c=>modeState.ac.has(c))){addLine('  ★ PARABÉNS! A palavra era: '+modeState.palavra,'info-line');addLine('  FORCA para jogar de novo   SAIR para encerrar.','dim-line');modeState.vivo=false;return;}if(modeState.er.size>=modeState.max){addLine('  ✖ GAME OVER. A palavra era: '+modeState.palavra,'error-line');addLine('  FORCA para jogar de novo   SAIR para encerrar.','dim-line');modeState.vivo=false;}}
+
+// ───────────────────────────────────────────────────────────────────
+//  CAMPO MINADO
+// ───────────────────────────────────────────────────────────────────
+const MINE_W=9,MINE_H=9,MINE_COUNT=10;
+function startMinas(){
+  activeMode='minas';
+  const cells=MINE_W*MINE_H;
+  const mines=new Set();while(mines.size<MINE_COUNT){mines.add(Math.floor(Math.random()*cells));}
+  const adj=Array(cells).fill(0);
+  mines.forEach(m=>{
+    const r=Math.floor(m/MINE_W),c=m%MINE_W;
+    for(let dr=-1;dr<=1;dr++)for(let dc=-1;dc<=1;dc++){const nr=r+dr,nc=c+dc;if(nr>=0&&nr<MINE_H&&nc>=0&&nc<MINE_W&&!mines.has(nr*MINE_W+nc))adj[nr*MINE_W+nc]++;}
+  });
+  modeState={mines,adj,revealed:new Set(),flagged:new Set(),alive:true,won:false};
+  addLine('');addLine('  CAMPO MINADO — 9x9, 10 minas','game-line');
+  addLine('  R [lin] [col]  = revelar   ex: R 3 5','game-line');
+  addLine('  F [lin] [col]  = marcar bandeira','game-line');
+  addLine('  SAIR para encerrar.','dim-line');addLine('');
+  renderMinas();
+}
+function renderMinas(){
+  const{mines,adj,revealed,flagged}=modeState;
+  addLine('     0 1 2 3 4 5 6 7 8','game-line');
+  for(let r=0;r<MINE_H;r++){
+    let row=`  ${r}  `;
+    for(let c=0;c<MINE_W;c++){
+      const idx=r*MINE_W+c;
+      if(flagged.has(idx))row+='P ';
+      else if(!revealed.has(idx))row+='▪ ';
+      else if(mines.has(idx))row+='* ';
+      else row+=(adj[idx]||'.')+' ';
+    }
+    addLine(row,'game-line');
+  }
+  addLine(`  Minas: ${MINE_COUNT}  Bandeiras: ${modeState.flagged.size}`,'dim-line');addLine('');
+}
+function revealCell(r,c,st){
+  if(r<0||r>=MINE_H||c<0||c>=MINE_W)return;
+  const idx=r*MINE_W+c;
+  if(st.revealed.has(idx)||st.flagged.has(idx))return;
+  st.revealed.add(idx);
+  if(st.adj[idx]===0&&!st.mines.has(idx)){for(let dr=-1;dr<=1;dr++)for(let dc=-1;dc<=1;dc++)revealCell(r+dr,c+dc,st);}
+}
+function handleMinas(raw){
+  const t=raw.trim().toLowerCase();
+  if(t==='sair'){exitMode();return;}
+  if(!modeState.alive){if(t==='minas')startMinas();return;}
+  const parts=raw.trim().split(/\s+/);
+  if(parts.length<3){addLine('  Uso: R [lin] [col]   ou   F [lin] [col]','dim-line');return;}
+  const cmd=parts[0].toLowerCase(),r=parseInt(parts[1]),c=parseInt(parts[2]);
+  if(isNaN(r)||isNaN(c)||r<0||r>=MINE_H||c<0||c>=MINE_W){addLine('  Coordenadas inválidas. Linha e coluna de 0 a 8.','error-line');return;}
+  const idx=r*MINE_W+c;
+  if(cmd==='f'){
+    if(modeState.revealed.has(idx)){addLine('  Célula já revelada.','warn-line');return;}
+    if(modeState.flagged.has(idx))modeState.flagged.delete(idx);else modeState.flagged.add(idx);
+    renderMinas();return;
+  }
+  if(cmd==='r'){
+    if(modeState.revealed.has(idx)){addLine('  Célula já revelada.','warn-line');return;}
+    if(modeState.flagged.has(idx)){addLine('  Remova a bandeira primeiro (F).','warn-line');return;}
+    if(modeState.mines.has(idx)){
+      modeState.revealed.add(idx);modeState.mines.forEach(m=>modeState.revealed.add(m));
+      renderMinas();addLine('  ★ BOOM! Você pisou em uma mina!','error-line');
+      addLine('  MINAS para jogar de novo   SAIR para encerrar.','dim-line');modeState.alive=false;return;
+    }
+    revealCell(r,c,modeState);
+    const safeTotal=MINE_W*MINE_H-MINE_COUNT;
+    if(modeState.revealed.size>=safeTotal){
+      renderMinas();addLine('  ★ PARABÉNS! Você varreu o campo!','info-line');
+      addLine('  MINAS para jogar de novo   SAIR para encerrar.','dim-line');modeState.alive=false;return;
+    }
+    renderMinas();return;
+  }
+  addLine('  Comando inválido. Use R ou F.','error-line');
+}
+
+// ───────────────────────────────────────────────────────────────────
+//  XADREZ
+// ───────────────────────────────────────────────────────────────────
+function startXadrez(){
+  activeMode='xadrez';
+  // Peças: letras maiúsculas=brancas, minúsculas=pretas
+  // R=Torre K=Rei Q=Rainha B=Bispo N=Cavalo P=Peão
+  modeState={
+    board:[
+      ['r','n','b','q','k','b','n','r'],
+      ['p','p','p','p','p','p','p','p'],
+      ['.','.','.','.','.','.','.','.'],['.','.','.','.','.','.','.','.'],['.','.','.','.','.','.','.','.'],['.','.','.','.','.','.','.','.'],
+      ['P','P','P','P','P','P','P','P'],
+      ['R','N','B','Q','K','B','N','R'],
+    ],
+    turn:'brancas', status:'', lastMove:'',
+  };
+  addLine('');addLine('  XADREZ WALLOS — Você joga com as Brancas (maiúsculas)','game-line');
+  addLine('  Colunas: a-h   Linhas: 1-8 (8 = topo)','game-line');
+  addLine('  Mova: [col][lin] [col][lin]   ex: e2 e4','game-line');
+  addLine('  SAIR para encerrar.','dim-line');addLine('');
+  renderXadrez();
+}
+const FILES_CHESS=['a','b','c','d','e','f','g','h'];
+function renderXadrez(){
+  const b=modeState.board;
+  addLine('    a b c d e f g h','game-line');
+  addLine('  ┌─────────────────┐','game-line');
+  for(let r=0;r<8;r++){
+    let row=`  │${8-r} `;
+    for(let c=0;c<8;c++){const p=b[r][c];row+=p+' ';}
+    row+=`│`;
+    addLine(row,'game-line');
+  }
+  addLine('  └─────────────────┘','game-line');
+  if(modeState.lastMove)addLine('  Último lance: '+modeState.lastMove,'dim-line');
+  addLine(`  Turno: ${modeState.turn}`,'info-line');
+  if(modeState.status)addLine('  '+modeState.status,'warn-line');
+  addLine('');
+}
+function xadrezMove(from,to){
+  const board=modeState.board;
+  const fc=FILES_CHESS.indexOf(from[0]),fr=8-parseInt(from[1]);
+  const tc=FILES_CHESS.indexOf(to[0]),tr=8-parseInt(to[1]);
+  if(fc<0||fr<0||fr>7||fc>7||tc<0||tr<0||tr>7||tc>7)return'Coordenadas inválidas.';
+  const piece=board[fr][fc];
+  if(piece==='.')return'Nenhuma peça em '+from+'.';
+  const isWhite=piece===piece.toUpperCase()&&piece!=='.';
+  if(modeState.turn==='brancas'&&!isWhite)return'É o turno das brancas.';
+  if(modeState.turn==='pretas'&&isWhite)return'É o turno das pretas (CPU).';
+  const target=board[tr][tc];
+  const targetIsWhite=target!=='.'&&target===target.toUpperCase();
+  if(target!=='.'&&isWhite===targetIsWhite)return'Você não pode capturar sua própria peça.';
+  board[tr][tc]=piece;board[fr][fc]='.';
+  modeState.lastMove=from.toUpperCase()+' → '+to.toUpperCase();
+  if(target.toLowerCase()==='k')return'XEQUE-MATE! Brancas vencem!';
+  modeState.turn='pretas';
+  // CPU faz lance aleatório simples
+  setTimeout(()=>cpuMove(),600);
+  return'';
+}
+function cpuMove(){
+  const b=modeState.board;
+  const moves=[];
+  for(let r=0;r<8;r++)for(let c=0;c<8;c++){const p=b[r][c];if(p!=='.'&&p===p.toLowerCase()){for(let tr=0;tr<8;tr++)for(let tc=0;tc<8;tc++){const t=b[tr][tc];if(t==='.'||(t!=='.'&&t===t.toUpperCase()))moves.push({fr:r,fc:c,tr,tc,p,t});}}}
+  if(!moves.length){modeState.status='Pretas não têm movimentos. Fim de jogo.';renderXadrez();return;}
+  // Prefere capturas
+  const caps=moves.filter(m=>m.t!=='.');
+  const mv=caps.length?caps[Math.floor(Math.random()*caps.length)]:moves[Math.floor(Math.random()*moves.length)];
+  const captured=b[mv.tr][mv.tc];
+  b[mv.tr][mv.tc]=mv.p;b[mv.fr][mv.fc]='.';
+  const fromStr=FILES_CHESS[mv.fc]+(8-mv.fr);const toStr=FILES_CHESS[mv.tc]+(8-mv.tr);
+  modeState.lastMove=`CPU: ${fromStr.toUpperCase()} → ${toStr.toUpperCase()}`;
+  modeState.turn='brancas';
+  if(captured.toLowerCase()==='k'){modeState.status='XEQUE-MATE! Pretas vencem! (CPU)';modeState.turn='fim';}
+  renderXadrez();
+}
+function handleXadrez(raw){
+  const t=raw.trim().toLowerCase();
+  if(t==='sair'){exitMode();return;}
+  if(modeState.turn==='fim'){if(t==='xadrez')startXadrez();return;}
+  const parts=t.split(/\s+/);
+  if(parts.length!==2||parts[0].length!==2||parts[1].length!==2){addLine('  Formato: [col][lin] [col][lin]   ex: e2 e4','dim-line');return;}
+  const err=xadrezMove(parts[0],parts[1]);
+  if(err){addLine('  ERRO: '+err,'error-line');return;}
+  if(modeState.status)modeState.status='';
+  renderXadrez();
+}
+
+// ───────────────────────────────────────────────────────────────────
+//  PONGSYS
+// ───────────────────────────────────────────────────────────────────
+const PG_W=40,PG_H=18,PAD=3;
+let pongIv=null;
+function startPong(){
+  activeMode='pong';
+  modeState={
+    ball:{x:20,y:9,vx:1,vy:1},
+    p1:8,p2:8, // linha superior do pad
+    score:{p1:0,p2:0},
+    alive:true,fl:[],
+    input:{up1:false,dn1:false,up2:false,dn2:false},
+  };
+  addLine('');addLine('  PONGSYS v1.0 — W/S = Jogador 1   Setas ↑↓ = Jogador 2','game-line');
+  addLine('  Primeiro a 5 pontos vence. SAIR para encerrar.','dim-line');addLine('');
+  renderPong();
+  pongIv=setInterval(pongTick,90);
+}
+function renderPong(){
+  const{ball,p1,p2,score}=modeState;
+  modeState.fl.forEach(e=>e.remove());modeState.fl=[];
+  for(let y=0;y<PG_H;y++){
+    let row='  ';
+    for(let x=0;x<PG_W;x++){
+      if(x===0||x===PG_W-1)row+='│';
+      else if(y===0||y===PG_H-1)row+='─';
+      else if(x===1&&y>=p1&&y<p1+PAD)row+='█';
+      else if(x===PG_W-2&&y>=p2&&y<p2+PAD)row+='█';
+      else if(Math.round(ball.x)===x&&Math.round(ball.y)===y)row+='●';
+      else if(x===PG_W/2)row+='┊';
+      else row+=' ';
+    }
+    modeState.fl.push(addLine(row,'game-line'));
+  }
+  modeState.fl.push(addLine(`  J1: ${score.p1}   J2: ${score.p2}   [W/S = J1  ↑↓ = J2]`,'dim-line'));
+}
+function pongTick(){
+  const st=modeState;if(!st.alive)return;
+  if(st.input.up1)st.p1=Math.max(0,st.p1-1);
+  if(st.input.dn1)st.p1=Math.min(PG_H-1-PAD,st.p1+1);
+  if(st.input.up2)st.p2=Math.max(0,st.p2-1);
+  if(st.input.dn2)st.p2=Math.min(PG_H-1-PAD,st.p2+1);
+  st.ball.x+=st.ball.vx;st.ball.y+=st.ball.vy;
+  if(st.ball.y<=1||st.ball.y>=PG_H-2)st.ball.vy*=-1;
+  // J1 pad x=1
+  if(st.ball.x<=2&&st.ball.y>=st.p1&&st.ball.y<st.p1+PAD){st.ball.vx=Math.abs(st.ball.vx);st.ball.vy+=((st.ball.y-(st.p1+PAD/2))/PAD)*0.8;}
+  // J2 pad x=PG_W-2
+  if(st.ball.x>=PG_W-3&&st.ball.y>=st.p2&&st.ball.y<st.p2+PAD){st.ball.vx=-Math.abs(st.ball.vx);st.ball.vy+=((st.ball.y-(st.p2+PAD/2))/PAD)*0.8;}
+  // Limitar vy
+  st.ball.vy=Math.max(-2,Math.min(2,st.ball.vy));
+  // Ponto
+  if(st.ball.x<=0){st.score.p2++;st.ball={x:20,y:9,vx:1,vy:1};}
+  if(st.ball.x>=PG_W-1){st.score.p1++;st.ball={x:20,y:9,vx:-1,vy:1};}
+  if(st.score.p1>=5||st.score.p2>=5){
+    clearInterval(pongIv);st.alive=false;
+    renderPong();
+    addLine('  ★ '+( st.score.p1>=5?'JOGADOR 1':'JOGADOR 2')+' VENCEU!','info-line');
+    addLine('  PONG para jogar de novo   SAIR para encerrar.','dim-line');return;
+  }
+  renderPong();
+}
+function handlePong(raw){
+  const t=raw.trim().toLowerCase();
+  if(t==='sair'){clearInterval(pongIv);exitMode();return;}
+  if(!modeState.alive){if(t==='pong'){clearInterval(pongIv);startPong();}return;}
+}
+document.addEventListener('keydown',e=>{
+  if(activeMode==='pong'&&modeState.alive){
+    if(e.key==='w')modeState.input.up1=true;
+    if(e.key==='s')modeState.input.dn1=true;
+    if(e.key==='ArrowUp'){e.preventDefault();modeState.input.up2=true;}
+    if(e.key==='ArrowDown'){e.preventDefault();modeState.input.dn2=true;}
+  }
+  if(activeMode==='snake'&&modeState.alive){
+    const M={ArrowUp:'w',ArrowLeft:'a',ArrowDown:'s',ArrowRight:'d'};
+    const k=M[e.key]||e.key.toLowerCase();
+    const D={w:{x:0,y:-1},a:{x:-1,y:0},s:{x:0,y:1},d:{x:1,y:0}};
+    if(D[k]){e.preventDefault();const nd=D[k],c=modeState.dir;if(nd.x!==(-c.x)||nd.y!==(-c.y))modeState.nextDir=nd;}
+  }
+});
+document.addEventListener('keyup',e=>{
+  if(activeMode==='pong'){
+    if(e.key==='w')modeState.input.up1=false;
+    if(e.key==='s')modeState.input.dn1=false;
+    if(e.key==='ArrowUp')modeState.input.up2=false;
+    if(e.key==='ArrowDown')modeState.input.dn2=false;
+  }
+});
+
+// ───────────────────────────────────────────────────────────────────
+//  GOD MODE
+// ───────────────────────────────────────────────────────────────────
+function triggerGodMode(){
+  godMode=true;addLine('');addLine('...');addLine('');
+  setTimeout(()=>{
+    body.classList.add('god-mode');body.style.backgroundColor='#0a0000';
+    let n=0;const iv=setInterval(()=>{
+      output.style.transform=`translate(${(Math.random()-.5)*6}px,${(Math.random()-.5)*3}px)`;
+      if(++n>20){clearInterval(iv);output.style.transform='';typeGodLines(GOD_MESSAGES,130);}
+    },50);
+  },800);
+}
+
+// ───────────────────────────────────────────────────────────────────
+//  MODO INTERATIVO — sair
+// ───────────────────────────────────────────────────────────────────
+function exitMode(){
+  activeMode=null;modeState={};
+  addLine('');addLine(' [sessão encerrada — retornando ao WALLOS]','dim-line');addLine('');
+}
+
+// ───────────────────────────────────────────────────────────────────
+//  ROTEADOR PRINCIPAL
+// ───────────────────────────────────────────────────────────────────
+function processCommand(raw){
+  const cmd=raw.trim();if(!cmd)return;
+  cmdHistory.unshift(cmd);histIdx=-1;
+  if(activeMode!=='snake'&&activeMode!=='pong')addLine('C:\\WALLOS> '+cmd,'prompt-line');
+  if(activeMode==='calc'){handleCalc(cmd);return;}
+  if(activeMode==='snake'){handleSnake(cmd);return;}
+  if(activeMode==='forca'){handleForca(cmd);return;}
+  if(activeMode==='minas'){handleMinas(cmd);return;}
+  if(activeMode==='xadrez'){handleXadrez(cmd);return;}
+  if(activeMode==='pong'){handlePong(cmd);return;}
+  if(godMode){addLine('');addLine('O SISTEMA ESTÁ NO MODO DEUS.','error-line');addLine('COMANDOS NORMAIS FORAM SUSPENSOS.','error-line');addLine('');return;}
+
+  const parts=cmd.toLowerCase().split(/\s+/);
+  const verb=parts[0];
+  const args=parts.slice(1);
+  const arg=args.join(' ');
+
+  switch(verb){
+    case 'help': addLines(buildHelp(),'info-line'); break;
+    case 'clear': output.innerHTML=''; break;
+    case 'date': addLine('');addLine('  Data/Hora: '+new Date().toLocaleString('pt-BR'),'info-line');addLine(''); break;
+    case 'sysinfo':
+      addLines(['','  WALLOS v3.0.0','  ─────────────────────────────────────','  CPU    : WALLCPU-Z80 @ 4.77 MHz','  MEM    : 640K (convencional)','  DISCO  : WALLDISK-20MB','  BIOS   : WALLBIOS 1.0 (1987)','  JOGOS  : SNAKE, FORCA, MINAS, XADREZ, PONG','  UTILS  : CALC, MAIL, CAL','  STATUS : OPERACIONAL [?]','  NOTA   : O SISTEMA ESTÁ CIENTE DE VOCÊ.',''],'output-line');break;
+    case 'echo':
+      if(!arg){addLine('  ECHO está ativo.','dim-line');}else addLine('  '+cmd.substring(5).trim(),'output-line');break;
+    case 'dir': addLines(buildDir(args[0]||null),'output-line'); break;
+    case 'open':
+      if(!arg){addLine('');addLine('  ERRO: Use: OPEN [arquivo]','error-line');addLine('');}
+      else openFile(arg.replace(/^"|"$/g,''),null);
+      break;
+    case 'lixeira': handleLixeira(args); break;
+    case 'mail': handleMail(args); break;
+    case 'cal': showCalendar(args); break;
+    case 'calc': startCalc(); break;
+    case 'snake': startSnake(); break;
+    case 'forca': startForca(); break;
+    case 'minas': startMinas(); break;
+    case 'xadrez': startXadrez(); break;
+    case 'pong': startPong(); break;
+    case 'god': triggerGodMode(); break;
+    default:
+      addLine('');addLine(` '${cmd}' não é reconhecido como comando interno.`,'error-line');
+      addLine('  Digite HELP para ver os comandos disponíveis.','dim-line');addLine('');
+  }
+}
+
+// ───────────────────────────────────────────────────────────────────
+//  INPUT
+// ───────────────────────────────────────────────────────────────────
+input.addEventListener('keydown',e=>{
+  if(e.key==='Enter'){const v=input.value;input.value='';processCommand(v);}
+  else if(e.key==='ArrowUp'&&activeMode!=='snake'&&activeMode!=='pong'){e.preventDefault();if(histIdx<cmdHistory.length-1){histIdx++;input.value=cmdHistory[histIdx];}}
+  else if(e.key==='ArrowDown'&&activeMode!=='snake'&&activeMode!=='pong'){e.preventDefault();if(histIdx>0){histIdx--;input.value=cmdHistory[histIdx];}else{histIdx=-1;input.value='';}}
+});
+document.addEventListener('click',()=>input.focus());
+
+// ───────────────────────────────────────────────────────────────────
+//  BOOT LENTO (PC velho)
+// ───────────────────────────────────────────────────────────────────
+const BOOT=[
+  {t:0,   l:'WALLOS BIOS v1.0  Copyright 1987 WALL Industries, Ltd.'},
+  {t:600, l:'Copyright (C) 1981 Microsoft Corp.'},
+  {t:1100,l:''},
+  {t:1200,l:'Testando memória convencional:  '},
+  {t:1500,l:'  64K ... OK'},
+  {t:1700,l:'  128K ... OK'},
+  {t:1950,l:'  256K ... OK'},
+  {t:2250,l:'  512K ... OK'},
+  {t:2600,l:'  640K ... OK'},
+  {t:2900,l:''},
+  {t:3000,l:'Inicializando controlador de disco...'},
+  {t:3400,l:'  Unidade A: não encontrada'},
+  {t:3600,l:'  Unidade C: WALLDISK-20MB ....... OK'},
+  {t:4100,l:'  Verificando FAT .................'},
+  {t:4500,l:'  4 entradas corrompidas detectadas (ignoradas)'},
+  {t:5000,l:''},
+  {t:5100,l:'Carregando WALLOS.SYS ...........'},
+  {t:5600,l:'  OK  (482 bytes)'},
+  {t:5800,l:'Carregando WALLSHELL.COM .........'},
+  {t:6100,l:'  OK  (1.204 bytes)'},
+  {t:6200,l:'Carregando CALC.COM ..............'},
+  {t:6450,l:'  OK'},
+  {t:6550,l:'Carregando SNAKE.EXE .............'},
+  {t:6800,l:'  OK'},
+  {t:6900,l:'Carregando FORCA.EXE .............'},
+  {t:7100,l:'  OK'},
+  {t:7200,l:'Carregando MINAS.EXE .............'},
+  {t:7450,l:'  OK'},
+  {t:7550,l:'Carregando XADREZ.EXE ............'},
+  {t:7800,l:'  OK'},
+  {t:7900,l:'Carregando PONGSYS.EXE ...........'},
+  {t:8150,l:'  OK'},
+  {t:8250,l:'Carregando WALLMAIL.COM ..........'},
+  {t:8500,l:'  OK  (3 mensagens na inbox)'},
+  {t:8700,l:''},
+  {t:8800,l:'AVISO: 1 arquivo(s) com integridade comprometida.'},
+  {t:9200,l:'AVISO: Monitor temporal detectou anomalia no setor 94.'},
+  {t:9700,l:'AVISO: Entidade desconhecida registrada em /WALLOS/GOD.TXT'},
+  {t:10300,l:''},
+  {t:10500,l:'═══════════════════════════════════════════════════════════'},
+  {t:10600,l:'  Bem-vindo ao WALLOS — WALL OPERATING LOGIC SYSTEM v3.0  '},
+  {t:10700,l:'  Digite HELP para ver os comandos disponíveis.            '},
+  {t:10800,l:'═══════════════════════════════════════════════════════════'},
+  {t:10900,l:''},
+];
+BOOT.forEach(b=>setTimeout(()=>addLine(b.l,'output-line'),b.t));
+setTimeout(()=>input.focus(),11000);
+</script>
+</body>
+</html>
